@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Smeni</title><style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{background:#161619;color:#f4f4f5;padding:16px;max-width:480px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+h1{font-size:22px;font-weight:700}.gear{background:#27272a;border:1px solid #3f3f46;color:#d4d4d8;width:38px;height:38px;border-radius:10px;font-size:18px}
+.card{background:#202024;border:1px solid #2e2e34;border-radius:14px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:13px;color:#a1a1aa;margin-bottom:6px}
+input,select{width:100%;background:#161619;border:1px solid #3f3f46;color:#fff;padding:12px;border-radius:10px;font-size:15px;margin-bottom:12px}
+.btn{width:100%;background:#10b981;color:#fff;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:600}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.bsec{background:#27272a;border:1px solid #3f3f46;color:#e4e4e7;padding:12px;border-radius:10px;font-size:13px;text-align:center}
+.chip{display:inline-block;background:#161619;border:1px solid #3f3f46;padding:8px 10px;border-radius:9px;margin:4px 4px 0 0;font-size:12px;cursor:pointer}
+.chip b{color:#34d399}.item{background:#161619;border-radius:10px;padding:12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center}
+.del{color:#f87171;background:none;border:none;font-size:14px;padding:6px}.hide{display:none}
+</style></head><body>
+<div class="top"><h1>Smeni</h1><button class="gear" onclick="togSet()">⚙️</button></div>
+<div id="setBox" class="card hide"><label>Опорная дата смены (шаг 4 дня)</label><input type="date" id="baseD"><div class="row2"><div><label>Сутки ₽</label><input type="number" id="rFull"></div><div><label>Ночь ₽</label><input type="number" id="rHalf"></div></div><button class="btn" onclick="saveSet()">Сохранить настройки</button></div>
+<div class="card"><label>Дата начала смены:</label><input type="date" id="dIn"><label>Тип смены:</label><select id="tIn"></select><button class="btn" onclick="addS()">Отметить смену</button></div>
+<div class="card"><div style="font-size:13px;color:#a1a1aa;margin-bottom:6px">Ближайшие смены (нажми чтобы выбрать):</div><div id="nextBox"></div></div>
+<div class="card"><div id="statBox" style="font-size:14px;line-height:1.5"></div></div>
+<div class="card row2"><button class="bsec" onclick="expB()">📥 Сохранить бэкап</button><label class="bsec" style="margin:0;cursor:pointer">📤 Загрузить бэкап<input type="file" accept=".json" class="hide" onchange="impB(event)"></label></div>
+<div class="card"><h2 style="font-size:17px;margin-bottom:4px">История смен</h2><div id="list"></div></div>
+<script>
+const K="smeni_v2",SK="smeni_cfg",WD=["вс","пн","вт","ср","чт","пт","сб"];
+let cfg=JSON.parse(localStorage.getItem(SK)||'{"b":"2026-11-22","f":2300,"h":1150}');
+let raw=JSON.parse(localStorage.getItem(K)||"[]");let db=raw.length?raw:[{"id":1,"d":"2026-11-22","t":"f","p":2300},{"id":2,"d":"2026-11-14","t":"f","p":2300},{"id":3,"d":"2026-11-10","t":"h","p":1150},{"id":4,"d":"2026-11-07","t":"f","p":2300}];
+const $=id=>document.getElementById(id);
+function init(){
+$("baseD").value=cfg.b;$("rFull").value=cfg.f;$("rHalf").value=cfg.h;
+$("tIn").innerHTML=`<option value="f">Сутки (08:00 - 08:00) — ${cfg.f} ₽</option><option value="h">Ночь (17:00 - 08:00) — ${cfg.h} ₽</option>`;
+if(!$("dIn").value)$("dIn").value=new Date().toISOString().slice(0,10);
+render();
+}
+function togSet(){$("setBox").classList.toggle("hide")}
+function saveSet(){cfg={b:$("baseD").value||"2026-11-22",f:+$("rFull").value||2300,h:+$("rHalf").value||1150};localStorage.setItem(SK,JSON.stringify(cfg));togSet();init()}
+function addS(){const d=$("dIn").value,t=$("tIn").value;if(!d)return;db.push({id:Date.now(),d,t,p:t==="f"?cfg.f:cfg.h});db.sort((a,b)=>b.d.localeCompare(a.d));save()}
+function delS(id){db=db.filter(x=>x.id!==id);save()}
+function save(){localStorage.setItem(K,JSON.stringify(db));render()}
+function pick(d,t){$("dIn").value=d;$("tIn").value=t}
+function render(){
+let cur=new Date().toISOString().slice(0,7),m=db.filter(x=>x.d.startsWith(cur)),sum=m.reduce((s,x)=>s+x.p,0);
+$("statBox").innerHTML=`За этот месяц смен: <b>${m.length}</b> · Заработано: <b style="color:#34d399">${sum} ₽</b>`;
+let b=new Date(cfg.b+"T00:00:00"),now=new Date();now.setHours(0,0,0,0);while(b<now)b.setDate(b.getDate()+4);
+let chips="";for(let i=0;i<4;i++){let iso=b.toISOString().slice(0,10),w=b.getDay(),isW=(w===0||w===6),tp=isW?"f":"h",lbl=b.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"});chips+=`<span class="chip" onclick="pick('${iso}','${tp}')"><b>${lbl}</b> (${WD[w]} · ${isW?"сутки":"ночь"})</span>`;b.setDate(b.getDate()+4)}
+$("nextBox").innerHTML=chips;
+$("list").innerHTML=db.map(x=>{let dt=new Date(x.d+"T00:00:00").toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"}),cl=x.t==="f"?"#34d399":"#60a5fa",nm=x.t==="f"?"Сутки (08:00-08:00)":"Ночь (17:00-08:00)";return `<div class="item"><div><div style="font-weight:600;font-size:15px">${dt}</div><div style="font-size:13px;color:${cl}">${nm} — ${x.p} ₽</div></div><button class="del" onclick="delS(${x.id})">Удалить</button></div>`}).join("")||'<div style="color:#71717a;font-size:13px;margin-top:8px">Пока пусто</div>';
+}
+function expB(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(db)],{type:"application/json"}));a.download="smeni_backup.json";a.click()}
+function impB(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{let j=JSON.parse(r.result);let a=Array.isArray(j)?j:(j.shifts||j.items||j.data||[]);if(a.length){j=a;db=j.map(x=>({id:x.id||Date.now()+Math.random(),d:x.d||x.date,t:x.t||(x.price>=2000?"f":"h"),p:+(x.p||x.price||0)}));save()}}catch(err){}};r.readAsText(f)}
+init();
+</script></body></html>
